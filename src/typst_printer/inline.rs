@@ -143,9 +143,9 @@ impl<'a> ToDoc<'a> for Inline {
 
             Inline::Latex(latex) => state
                 .arena
-                .text("$")
-                .append(state.arena.text(latex.clone()))
-                .append(state.arena.text("$")),
+                .text("#mi(block: false, \"")
+                .append(state.arena.text(escape_typst(&latex.clone())))
+                .append(state.arena.text("\")")),
         }
     }
 }
