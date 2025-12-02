@@ -1,15 +1,13 @@
-//! LaTeX printer for Markdown AST
+//! Typst printer for Markdown AST
 //!
 //! This module provides functionality to render a Markdown Abstract Syntax Tree (AST)
-//! into LaTeX format. The printer supports full CommonMark + GitHub Flavored Markdown
+//! into Typst format. The printer supports full CommonMark + GitHub Flavored Markdown
 //! features and offers configurable output styles.
 //!
 //! # Features
 //!
 //! - **Full AST coverage**: All block and inline elements from CommonMark + GFM
-//! - **Configurable table styles**: `tabular`, `longtabu`, `booktabs`
-//! - **Configurable code styles**: `verbatim`, `listings`, `minted`
-//! - **Proper LaTeX escaping**: All special characters are properly escaped
+//! - **Proper Typst escaping**: All special characters are properly escaped
 //! - **GitHub extensions**: Alerts, task lists, footnotes, strikethrough
 //! - **Width control**: Configurable line width for pretty-printing
 //!
@@ -17,61 +15,47 @@
 //!
 //! ```rust
 //! use markdown_ppp::ast::*;
-//! use markdown_ppp::latex_printer::{render_latex, config::Config};
+//! use markdown_ppp::typst_printer::{render_typst, config::Config};
 //!
 //! let doc = Document {
 //!     blocks: vec![
 //!         Block::Heading(Heading {
 //!             kind: HeadingKind::Atx(1),
-//!             content: vec![Inline::Text("Hello LaTeX".to_string())],
+//!             content: vec![Inline::Text("Hello Typst".to_string())],
 //!         }),
 //!         Block::Paragraph(vec![
 //!             Inline::Text("This is ".to_string()),
 //!             Inline::Strong(vec![Inline::Text("bold".to_string())]),
 //!             Inline::Text(" and ".to_string()),
 //!             Inline::Emphasis(vec![Inline::Text("italic".to_string())]),
-//!             Inline::Text(" text with special chars: $100 & 50%.".to_string()),
+//!             Inline::Text(" text.".to_string()),
 //!         ]),
 //!     ],
 //! };
 //!
-//! let latex = render_latex(&doc, Config::default());
+//! let typst = render_typst(&doc, Config::default());
 //! // Produces:
-//! // \section{Hello LaTeX}
+//! // = Hello Typst
 //! //
-//! // This is \textbf{bold} and \textit{italic} text with special chars: \$100 \& 50\%.
+//! // This is *bold* and _italic_ text.
 //! ```
 //!
-//! # Advanced Configuration
+//! # Typst Element Mappings
 //!
-//! ```rust
-//! # use markdown_ppp::ast::*;
-//! # use markdown_ppp::latex_printer::{render_latex, config::*};
-//! let config = Config::default()
-//!     .with_width(120)
-//!     .with_table_style(TableStyle::Booktabs)
-//!     .with_code_block_style(CodeBlockStyle::Minted);
-//!
-//! # let doc = Document { blocks: vec![] };
-//! let latex = render_latex(&doc, config);
-//! ```
-//!
-//! # LaTeX Element Mappings
-//!
-//! | Markdown          | LaTeX                                |
+//! | Markdown          | Typst                                |
 //! |-------------------|--------------------------------------|
-//! | `# Heading`       | `\section{Heading}`                 |
-//! | `**bold**`        | `\textbf{bold}`                     |
-//! | `*italic*`        | `\textit{italic}`                   |
-//! | `~~strike~~`      | `\sout{strike}`                     |
-//! | `` `code` ``      | `\texttt{code}`                     |
-//! | `> quote`         | `\begin{quote}...\end{quote}`       |
-//! | `- list`          | `\begin{itemize}...\end{itemize}`   |
-//! | `1. ordered`      | `\begin{enumerate}...\end{enumerate}` |
-//! | `[link](url)`     | `\href{url}{link}`                  |
-//! | `![img](url)`     | `\includegraphics{url}`             |
-//! | Tables            | `\begin{tabular}...` (configurable) |
-//! | Code blocks       | `\begin{verbatim}...` (configurable) |
+//! | `# Heading`       | `= Heading`                          |
+//! | `**bold**`        | `*bold*`                             |
+//! | `*italic*`        | `_italic_`                           |
+//! | `~~strike~~`      | `#strike[strike]`                    |
+//! | `` `code` ``      | `` `code` ``                         |
+//! | `> quote`         | `> quote`                            |
+//! | `- list`          | `- item`                             |
+//! | `1. ordered`      | `+ item`                             |
+//! | `[link](url)`     | `#link("url")[link]`                 |
+//! | `![img](url)`     | `#image("url")`                      |
+//! | Tables            | `#table(...)`                        |
+//! | Code blocks       | ` ``` `                              |
 
 mod block;
 pub mod config;
@@ -86,15 +70,15 @@ use crate::ast::*;
 use pretty::{Arena, DocBuilder};
 use std::{collections::HashMap, rc::Rc};
 
-/// Internal state for LaTeX rendering
+/// Internal state for Typst rendering
 ///
 /// This structure holds the rendering context including the pretty-printer arena,
 /// configuration, and pre-processed indices for footnotes and link definitions.
 pub(crate) struct State<'a> {
     arena: Arena<'a>,
-    config: crate::latex_printer::config::Config,
-    /// Mapping of footnote labels to their indices in the footnote list.
-    footnote_index: HashMap<String, usize>,
+    config: crate::typst_printer::config::Config,
+    /// Mapping of footnote labels to their definitions.
+    footnote_definitions: HashMap<String, FootnoteDefinition>,
     /// Mapping of link labels to their definitions.
     link_definitions: HashMap<Vec<Inline>, LinkDefinition>,
 }
@@ -104,22 +88,22 @@ impl State<'_> {
     ///
     /// This processes the AST to build indices for footnotes and link definitions,
     /// which are needed for proper cross-referencing during rendering.
-    pub fn new(config: crate::latex_printer::config::Config, ast: &Document) -> Self {
-        let (footnote_index, link_definitions) = get_indices(ast);
+    pub fn new(config: crate::typst_printer::config::Config, ast: &Document) -> Self {
+        let (footnote_definitions, link_definitions) = get_indices(ast);
         let arena = Arena::new();
         Self {
             arena,
             config,
-            footnote_index,
+            footnote_definitions,
             link_definitions,
         }
     }
 
-    /// Get the numeric index for a footnote label
+    /// Get the footnote definition for a label
     ///
     /// Returns `None` if the footnote is not defined in the document.
-    pub fn get_footnote_index(&self, label: &str) -> Option<&usize> {
-        self.footnote_index.get(label)
+    pub fn get_footnote_definition(&self, label: &str) -> Option<&FootnoteDefinition> {
+        self.footnote_definitions.get(label)
     }
 
     /// Get the link definition for a reference link
@@ -130,27 +114,25 @@ impl State<'_> {
     }
 }
 
-/// Render the given Markdown AST to LaTeX
+/// Render the given Markdown AST to Typst
 ///
-/// This is the main entry point for LaTeX rendering. It takes a parsed Markdown
-/// document and configuration, then produces LaTeX source code.
+/// This is the main entry point for Typst rendering. It takes a parsed Markdown
+/// document and configuration, then produces Typst source code.
 ///
 /// # Arguments
 ///
 /// * `ast` - The parsed Markdown document as an AST
-/// * `config` - Configuration for rendering (table styles, code styles, width, etc.)
+/// * `config` - Configuration for rendering (width, etc.)
 ///
 /// # Returns
 ///
-/// LaTeX source code as a string. This will be a document fragment suitable
-/// for inclusion in a larger LaTeX document, not a complete document with
-/// `\documentclass` etc.
+/// Typst source code as a string.
 ///
 /// # Examples
 ///
 /// ```rust
 /// use markdown_ppp::ast::*;
-/// use markdown_ppp::latex_printer::{render_latex, config::Config};
+/// use markdown_ppp::typst_printer::{render_typst, config::Config};
 ///
 /// let doc = Document {
 ///     blocks: vec![
@@ -169,34 +151,20 @@ impl State<'_> {
 ///                 task: Some(TaskState::Complete),
 ///                 blocks: vec![Block::Paragraph(vec![
 ///                     Inline::Strong(vec![Inline::Text("Bold".to_string())]),
-///                     Inline::Text(" item with special chars: $100 & 50%".to_string()),
+///                     Inline::Text(" item.".to_string()),
 ///                 ])],
 ///             }],
 ///         }),
 ///     ],
 /// };
 ///
-/// let latex = render_latex(&doc, Config::default());
-/// // Produces LaTeX with proper escaping and formatting:
-/// // Visit \href{https://example.com}{this link} for more info.
+/// let typst = render_typst(&doc, Config::default());
+/// // Produces Typst with proper escaping and formatting:
+/// // Visit #link("https://example.com")[this link] for more info.
 /// //
-/// // \begin{itemize}
-/// // \item $\boxtimes$ \textbf{Bold} item with special chars: \$100 \& 50\%
-/// // \end{itemize}
+/// // - [*Bold*] item
 /// ```
-///
-/// # LaTeX Packages Required
-///
-/// The generated LaTeX may require these packages depending on features used:
-///
-/// - `hyperref` - for links (`\href`)
-/// - `graphicx` - for images (`\includegraphics`)
-/// - `ulem` - for strikethrough (`\sout`)
-/// - `booktabs` - if using booktabs table style
-/// - `longtabu` - if using longtabu table style
-/// - `listings` - if using listings code style
-/// - `minted` - if using minted code style
-pub fn render_latex(ast: &Document, config: crate::latex_printer::config::Config) -> String {
+pub fn render_typst(ast: &Document, config: crate::typst_printer::config::Config) -> String {
     let state = Rc::new(State::new(config, ast));
     let doc = ast.to_doc(&state);
 
@@ -229,58 +197,45 @@ impl<'a> ToDoc<'a> for Document {
 /// Returns a tuple of (footnote_index, link_definitions) where:
 /// - footnote_index maps footnote labels to their numeric indices
 /// - link_definitions maps link labels to their full definitions
-fn get_indices(ast: &Document) -> (HashMap<String, usize>, HashMap<Vec<Inline>, LinkDefinition>) {
-    let mut footnote_index = HashMap::new();
+fn get_indices(
+    ast: &Document,
+) -> (
+    HashMap<String, FootnoteDefinition>,
+    HashMap<Vec<Inline>, LinkDefinition>,
+) {
+    let mut footnote_definitions = HashMap::new();
     let mut link_definitions = HashMap::new();
-    let mut footnote_counter = 1;
 
     fn process_blocks(
         blocks: &[Block],
-        footnote_index: &mut HashMap<String, usize>,
+        footnote_definitions: &mut HashMap<String, FootnoteDefinition>,
         link_definitions: &mut HashMap<Vec<Inline>, LinkDefinition>,
-        footnote_counter: &mut usize,
     ) {
         for block in blocks {
             match block {
                 Block::FootnoteDefinition(def) => {
-                    footnote_index.insert(def.label.clone(), *footnote_counter);
-                    *footnote_counter += 1;
+                    footnote_definitions.insert(def.label.clone(), def.clone());
                 }
                 Block::Definition(def) => {
                     link_definitions.insert(def.label.clone(), def.clone());
                 }
                 Block::List(list) => {
                     for item in &list.items {
-                        process_blocks(
-                            &item.blocks,
-                            footnote_index,
-                            link_definitions,
-                            footnote_counter,
-                        );
+                        process_blocks(&item.blocks, footnote_definitions, link_definitions);
                     }
                 }
                 Block::BlockQuote(blocks) => {
-                    process_blocks(blocks, footnote_index, link_definitions, footnote_counter);
+                    process_blocks(blocks, footnote_definitions, link_definitions);
                 }
                 Block::GitHubAlert(alert) => {
-                    process_blocks(
-                        &alert.blocks,
-                        footnote_index,
-                        link_definitions,
-                        footnote_counter,
-                    );
+                    process_blocks(&alert.blocks, footnote_definitions, link_definitions);
                 }
                 _ => {}
             }
         }
     }
 
-    process_blocks(
-        &ast.blocks,
-        &mut footnote_index,
-        &mut link_definitions,
-        &mut footnote_counter,
-    );
+    process_blocks(&ast.blocks, &mut footnote_definitions, &mut link_definitions);
 
-    (footnote_index, link_definitions)
+    (footnote_definitions, link_definitions)
 }
