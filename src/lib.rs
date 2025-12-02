@@ -47,6 +47,12 @@ pub mod html_printer;
 #[cfg(feature = "latex-printer")]
 pub mod latex_printer;
 
+/// Typst renderer for converting Markdown AST to Typst.
+///
+/// Render AST to Typst using [`render_typst`](typst_printer::render_typst).
+#[cfg(feature = "typst-printer")]
+pub mod typst_printer;
+
 /// AST transformation utilities for manipulating parsed Markdown.
 #[cfg(feature = "ast-transform")]
 pub mod ast_transform;

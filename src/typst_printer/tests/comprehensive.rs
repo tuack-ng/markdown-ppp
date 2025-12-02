@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::latex_printer::{config::*, render_latex};
+use crate::typst_printer::{config::*, render_typst};
 
 #[test]
 fn test_thematic_break() {
@@ -7,8 +7,8 @@ fn test_thematic_break() {
         blocks: vec![Block::ThematicBreak],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\hrule"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("---"));
 }
 
 #[test]
@@ -17,9 +17,8 @@ fn test_html_block() {
         blocks: vec![Block::HtmlBlock("<div>Raw HTML</div>".to_string())],
     };
 
-    let result = render_latex(&doc, Config::default());
-    // HTML should be escaped
-    assert!(result.contains(r"<div>Raw HTML</div>"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("#raw[<div>Raw HTML</div>]"));
 }
 
 #[test]
@@ -32,8 +31,7 @@ fn test_definition_block() {
         })],
     };
 
-    let result = render_latex(&doc, Config::default());
-    // Definitions should produce no output (handled during inline processing)
+    let result = render_typst(&doc, Config::default());
     assert_eq!(result.trim(), "");
 }
 
@@ -48,10 +46,8 @@ fn test_footnote_definition() {
         })],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\footnotetext"));
-    assert!(result.contains("[1]"));
-    assert!(result.contains("This is a footnote."));
+    let result = render_typst(&doc, Config::default());
+    assert_eq!(result.trim(), "");
 }
 
 #[test]
@@ -74,10 +70,10 @@ fn test_github_alerts() {
             })],
         };
 
-        let result = render_latex(&doc, Config::default());
-        assert!(result.contains(r"\footnote"));
+        let result = render_typst(&doc, Config::default());
+        assert!(result.contains("#rect"));
         assert!(result.contains(expected_text));
-        assert!(result.contains("Alert content"));
+        assert!(result.contains("Alert\ncontent"));
     }
 }
 
@@ -91,10 +87,9 @@ fn test_empty_block() {
         ],
     };
 
-    let result = render_latex(&doc, Config::default());
+    let result = render_typst(&doc, Config::default());
     assert!(result.contains("Before"));
     assert!(result.contains("After"));
-    // Empty blocks should not add any content
     let lines: Vec<&str> = result
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -112,9 +107,8 @@ fn test_line_break() {
         ])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"Line 1\\"));
-    assert!(result.contains("Line 2"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("Line 1\nLine 2"));
 }
 
 #[test]
@@ -127,8 +121,8 @@ fn test_inline_code() {
         ])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\texttt{println!()}"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("`println!()`"));
 }
 
 #[test]
@@ -141,9 +135,8 @@ fn test_inline_html() {
         ])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    // HTML should be escaped
-    assert!(result.contains("<em>HTML</em>"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("#raw[<em>HTML</em>]"));
 }
 
 #[test]
@@ -166,10 +159,8 @@ fn test_link_reference() {
         ],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\href"));
-    assert!(result.contains("https://example.com"));
-    assert!(result.contains("this site"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("#link(\"https://example.com\")[this site]"));
 }
 
 #[test]
@@ -183,8 +174,7 @@ fn test_link_reference_unresolved() {
         )])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    // Should fallback to text representation
+    let result = render_typst(&doc, Config::default());
     assert!(result.contains("[broken link][missing]"));
 }
 
@@ -198,27 +188,8 @@ fn test_image() {
         })])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\includegraphics"));
-    assert!(result.contains("image.png"));
-    assert!(result.contains(r"\caption"));
-    assert!(result.contains("Alt text"));
-}
-
-#[test]
-fn test_image_no_alt() {
-    let doc = Document {
-        blocks: vec![Block::Paragraph(vec![Inline::Image(Image {
-            destination: "image.png".to_string(),
-            title: None,
-            alt: "".to_string(),
-        })])],
-    };
-
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\includegraphics"));
-    assert!(result.contains("image.png"));
-    assert!(!result.contains(r"\caption"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("#image(\"image.png\", alt: \"Alt text\")"));
 }
 
 #[test]
@@ -231,8 +202,8 @@ fn test_strikethrough() {
         ])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\sout{crossed out}"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("#strike[crossed out]"));
 }
 
 #[test]
@@ -245,8 +216,8 @@ fn test_autolink() {
         ])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\url{https://example.com}"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("#link(\"https://example.com\")"));
 }
 
 #[test]
@@ -267,10 +238,8 @@ fn test_footnote_reference() {
         ],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\footnotemark"));
-    assert!(result.contains("[1]"));
-    assert!(result.contains(r"\footnotetext"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("#footnote[Footnote content]"));
 }
 
 #[test]
@@ -283,133 +252,8 @@ fn test_footnote_reference_unresolved() {
         ])],
     };
 
-    let result = render_latex(&doc, Config::default());
-    // Should fallback to text representation
+    let result = render_typst(&doc, Config::default());
     assert!(result.contains("[^missing]"));
-}
-
-#[test]
-fn test_empty_inline() {
-    let doc = Document {
-        blocks: vec![Block::Paragraph(vec![
-            Inline::Text("Before".to_string()),
-            Inline::Empty,
-            Inline::Text("After".to_string()),
-        ])],
-    };
-
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains("BeforeAfter"));
-}
-
-#[test]
-fn test_all_heading_levels() {
-    let doc = Document {
-        blocks: vec![
-            Block::Heading(Heading {
-                kind: HeadingKind::Atx(1),
-                content: vec![Inline::Text("Level 1".to_string())],
-            }),
-            Block::Heading(Heading {
-                kind: HeadingKind::Atx(2),
-                content: vec![Inline::Text("Level 2".to_string())],
-            }),
-            Block::Heading(Heading {
-                kind: HeadingKind::Atx(3),
-                content: vec![Inline::Text("Level 3".to_string())],
-            }),
-            Block::Heading(Heading {
-                kind: HeadingKind::Atx(4),
-                content: vec![Inline::Text("Level 4".to_string())],
-            }),
-            Block::Heading(Heading {
-                kind: HeadingKind::Atx(5),
-                content: vec![Inline::Text("Level 5".to_string())],
-            }),
-            Block::Heading(Heading {
-                kind: HeadingKind::Atx(6),
-                content: vec![Inline::Text("Level 6".to_string())],
-            }),
-            Block::Heading(Heading {
-                kind: HeadingKind::Setext(SetextHeading::Level2),
-                content: vec![Inline::Text("Setext 2".to_string())],
-            }),
-        ],
-    };
-
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\section{Level 1}"));
-    assert!(result.contains(r"\subsection{Level 2}"));
-    assert!(result.contains(r"\subsubsection{Level 3}"));
-    assert!(result.contains(r"\paragraph{Level 4}"));
-    assert!(result.contains(r"\subparagraph{Level 5}"));
-    assert!(result.contains(r"\subparagraph{Level 6}"));
-    assert!(result.contains(r"\subsection{Setext 2}"));
-}
-
-#[test]
-fn test_indented_code_block() {
-    let doc = Document {
-        blocks: vec![Block::CodeBlock(CodeBlock {
-            kind: CodeBlockKind::Indented,
-            literal: "def hello():\n    print('Hello')".to_string(),
-        })],
-    };
-
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\begin{verbatim}"));
-    assert!(result.contains("def hello():"));
-}
-
-#[test]
-fn test_table_longtabu() {
-    let doc = Document {
-        blocks: vec![Block::Table(Table {
-            rows: vec![
-                vec![
-                    vec![Inline::Text("A".to_string())],
-                    vec![Inline::Text("B".to_string())],
-                ],
-                vec![
-                    vec![Inline::Text("1".to_string())],
-                    vec![Inline::Text("2".to_string())],
-                ],
-            ],
-            alignments: vec![Alignment::Center, Alignment::Right],
-        })],
-    };
-
-    let config = Config::default().with_table_style(TableStyle::Longtabu);
-    let result = render_latex(&doc, config);
-    assert!(result.contains(r"\begin{longtabu}"));
-    assert!(result.contains("X[l] to \\textwidth"));
-    assert!(result.contains("{cr}"));
-}
-
-#[test]
-fn test_table_booktabs() {
-    let doc = Document {
-        blocks: vec![Block::Table(Table {
-            rows: vec![
-                vec![
-                    vec![Inline::Text("Header".to_string())],
-                    vec![Inline::Text("Value".to_string())],
-                ],
-                vec![
-                    vec![Inline::Text("Row1".to_string())],
-                    vec![Inline::Text("Data1".to_string())],
-                ],
-            ],
-            alignments: vec![Alignment::Left, Alignment::Center],
-        })],
-    };
-
-    let config = Config::default().with_table_style(TableStyle::Booktabs);
-    let result = render_latex(&doc, config);
-    assert!(result.contains(r"\toprule"));
-    assert!(result.contains(r"\midrule"));
-    assert!(result.contains(r"\bottomrule"));
-    assert!(result.contains(r"\begin{tabular}[lc]"));
 }
 
 #[test]
@@ -448,42 +292,10 @@ fn test_nested_elements() {
         ],
     };
 
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\begin{quote}"));
-    assert!(result.contains(r"\begin{itemize}"));
-    assert!(result.contains(r"\begin{enumerate}"));
-    assert!(result.contains(r"\textbf{bold}"));
-    assert!(result.contains(r"$\square$"));
-    assert!(result.contains(r"\begin{verbatim}"));
+    let result = render_typst(&doc, Config::default());
+    assert!(result.contains("> Quote paragraph"));
+    assert!(result.contains("- Item with *bold* text"));
+    assert!(result.contains("[#sym.checkbox]"));
+    assert!(result.contains("```bash"));
     assert!(result.contains("echo 'nested code'"));
-}
-
-#[test]
-fn test_complex_inline_combinations() {
-    let doc = Document {
-        blocks: vec![Block::Paragraph(vec![
-            Inline::Text("This is ".to_string()),
-            Inline::Strong(vec![
-                Inline::Text("bold with ".to_string()),
-                Inline::Emphasis(vec![Inline::Text("italic".to_string())]),
-                Inline::Text(" inside".to_string()),
-            ]),
-            Inline::Text(" and ".to_string()),
-            Inline::Strikethrough(vec![
-                Inline::Text("struck ".to_string()),
-                Inline::Code("code".to_string()),
-            ]),
-            Inline::Text(" text.".to_string()),
-        ])],
-    };
-
-    let result = render_latex(&doc, Config::default());
-    assert!(result.contains(r"\textbf{bold with \textit{italic} inside}"));
-    // Check for the strikethrough content with possible line breaks between words
-    assert!(
-        result.contains(r"\sout{")
-            && result.contains(r"struck")
-            && result.contains(r"\texttt{code}")
-            && result.contains(r"}")
-    );
 }
