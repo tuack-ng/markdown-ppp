@@ -129,12 +129,11 @@ fn close_tag(tag_value: &'static str) -> impl FnMut(&str) -> IResult<&str, ()> {
 }
 
 fn can_close(marker: char, next: Option<char>) -> bool {
-    let right_flanking = next.is_none_or(|c| c.is_whitespace() || is_punctuation(c));
-    if !right_flanking {
-        return false;
-    }
-
     if marker == '_' {
+        let right_flanking = next.is_none_or(|c| c.is_whitespace() || is_punctuation(c));
+        if !right_flanking {
+            return false;
+        }
         let left_flanking = next.is_some_and(|c| !c.is_whitespace())
             && (next.is_some_and(|c| !is_punctuation(c)))
             || (next.is_some_and(is_punctuation));

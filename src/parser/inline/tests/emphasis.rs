@@ -15,6 +15,20 @@ fn emphasis1() {
 }
 
 #[test]
+fn strong_followed_by_text() {
+    let doc = parse_markdown(MarkdownParserState::default(), "**foo**bar").unwrap();
+    assert_eq!(
+        doc,
+        Document {
+            blocks: vec![Block::Paragraph(vec![
+                Inline::Strong(vec![Inline::Text("foo".to_string())]),
+                Inline::Text("bar".to_string())
+            ])],
+        }
+    );
+}
+
+#[test]
 fn emphasis2() {
     let doc = parse_markdown(MarkdownParserState::default(), "* a *").unwrap();
     assert_eq!(
