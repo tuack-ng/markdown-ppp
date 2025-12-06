@@ -36,3 +36,27 @@ printer = ["pretty", "regex"]
 html-printer = ["pretty"]
 latex-printer = ["pretty"]
 ast-transform = []
+
+[[example]]
+name = "latex_example"
+required-features = ["latex-printer", "parser"]
+
+[[example]]
+name = "latex_comprehensive"
+required-features = ["latex-printer", "parser"]
+
+[[example]]
+name = "ast_transform_demo"
+required-features = ["ast-transform", "parser"]
+
+[[example]]
+name = "map_data_example"
+required-features = ["ast-specialized", "parser"]
+
+[[example]]
+name = "user_data_example"
+required-features = ["ast-specialized", "parser"]
+
+[[example]]
+name = "generic_ast_example"
+required-features = ["parser"]
