@@ -25,8 +25,11 @@ impl<'a> ToDoc<'a> for Vec<&Block> {
 impl<'a> ToDoc<'a> for Block {
     fn to_doc(&self, state: &'a crate::typst_printer::State<'a>) -> DocBuilder<'a, Arena<'a>, ()> {
         match self {
-            Block::Paragraph(inlines) => inlines.to_doc(state),
-
+            Block::Paragraph(inlines) => state
+                .arena
+                .text("#par[")
+                .append(inlines.to_doc(state))
+                .append("]"), //TODO: #par[]
             Block::Heading(heading) => {
                 let level = match heading.kind {
                     HeadingKind::Atx(level) => level,
@@ -35,17 +38,21 @@ impl<'a> ToDoc<'a> for Block {
                 };
                 state
                     .arena
-                    .text("=".repeat(level as usize))
-                    .append(state.arena.space())
+                    .text("#heading(level: ")
+                    .append(level.to_string())
+                    .append(", [")
+                    // .append(state.arena.space())
                     .append(heading.content.to_doc(state))
+                    .append("])")
             }
 
-            Block::ThematicBreak => state.arena.text("---"),
+            Block::ThematicBreak => state.arena.text("#thematic-break"),
 
             Block::BlockQuote(blocks) => state
                 .arena
-                .text("> ")
-                .append(blocks.to_doc(state).nest(2)),
+                .text("#quote(block: true)[\n")
+                .append(blocks.to_doc(state))
+                .append("]"),
 
             Block::List(list) => list.to_doc(state),
 
@@ -56,12 +63,13 @@ impl<'a> ToDoc<'a> for Block {
                 };
                 state
                     .arena
-                    .text("```")
+                    .text("#raw(block: true, lang: \"")
                     .append(state.arena.text(lang.to_string()))
-                    .append(state.arena.hardline())
+                    .append(state.arena.text("\", \""))
+                    // .append(state.arena.hardline())
                     .append(state.arena.text(code_block.literal.clone()))
-                    .append(state.arena.hardline())
-                    .append(state.arena.text("```"))
+                    // .append(state.arena.hardline())
+                    .append(state.arena.text("\")"))
             }
 
             Block::HtmlBlock(html) => body(
@@ -75,9 +83,7 @@ impl<'a> ToDoc<'a> for Block {
 
             Block::Table(table) => table.to_doc(state),
 
-            Block::FootnoteDefinition(_) => {
-                state.arena.nil()
-            }
+            Block::FootnoteDefinition(_) => state.arena.nil(),
 
             Block::GitHubAlert(alert) => {
                 let title = match &alert.alert_type {
@@ -118,14 +124,12 @@ impl<'a> ToDoc<'a> for List {
             ListKind::Ordered(_) => "#enum(\n[",
             ListKind::Bullet(_) => "#list(\n[",
         };
-        
+
         // 构建列表内容
-        let list_content = state
-            .arena
-            .intersperse(
-                self.items.iter().map(|item| item.to_doc(self, state)),
-                state.arena.text("],\n["),
-            );
+        let list_content = state.arena.intersperse(
+            self.items.iter().map(|item| item.to_doc(self, state)),
+            state.arena.text("],\n["),
+        );
 
         // 组合前缀、内容和后缀
         state
@@ -142,7 +146,22 @@ impl ListItem {
         list: &List,
         state: &'a crate::typst_printer::State<'a>,
     ) -> DocBuilder<'a, Arena<'a>, ()> {
-        let mut item_content = self.blocks.to_doc(state);
+        // 处理 blocks，如果是段落则只渲染子节点
+        let item_content = state.arena.intersperse(
+            self.blocks.iter().map(|block| {
+                // 如果是段落，只渲染段落的内联子节点
+                if let Block::Paragraph(inlines) = block {
+                    state.arena.intersperse(
+                        inlines.iter().map(|inline| inline.to_doc(state)),
+                        state.arena.nil(),
+                    )
+                } else {
+                    // 非段落直接渲染
+                    block.to_doc(state)
+                }
+            }),
+            state.arena.line(), // 块级元素之间的分隔符
+        );
 
         // 处理任务列表
         if let Some(task_state) = self.task {
@@ -150,9 +169,9 @@ impl ListItem {
                 TaskState::Complete => "[#sym.checked] ",
                 TaskState::Incomplete => "[#sym.checkbox] ",
             };
-            item_content = state.arena.text(checkbox).append(item_content);
+            state.arena.text(checkbox).append(item_content)
+        } else {
+            item_content
         }
-
-        item_content
     }
 }

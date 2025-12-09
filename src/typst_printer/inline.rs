@@ -15,16 +15,19 @@ impl<'a> ToDoc<'a> for Inline {
     fn to_doc(&self, state: &'a crate::typst_printer::State<'a>) -> DocBuilder<'a, Arena<'a>, ()> {
         match self {
             Inline::Text(text) => {
-                let text = text.replace('\n', " ");
-                if text.trim().is_empty() {
-                    return state.arena.text(escape_typst(&text));
-                }
-                let words_or_spaces: Vec<_> = split_with_spaces(&text);
-                let words_or_spaces = words_or_spaces.into_iter().map(|v| match v {
-                    Some(word) => state.arena.text(escape_typst(word)),
-                    None => state.arena.softline(),
-                });
-                state.arena.concat(words_or_spaces)
+                // let text = text.replace('\n', " ");
+                // if text.trim().is_empty() {
+                //     return state.arena.text(escape_typst(&text));
+                // }
+                // let words_or_spaces: Vec<_> = split_with_spaces(&text);
+                // let words_or_spaces = words_or_spaces.into_iter().map(|v| match v {
+                //     Some(word) => state.arena.text(escape_typst(word)),
+                //     None => state.arena.softline(),
+                // });
+                // state.arena.concat(words_or_spaces)
+                let escaped = escape_typst(&text);
+                let formatted = format!("#\"{}\"", escaped);
+                state.arena.text(formatted)
             }
 
             Inline::LineBreak => state.arena.hardline(),
@@ -33,9 +36,9 @@ impl<'a> ToDoc<'a> for Inline {
                 let escaped_code = code.replace('`', r"\`");
                 state
                     .arena
-                    .text("`")
+                    .text("#raw(block: false, lang: \"txt\", \"")
                     .append(state.arena.text(escaped_code))
-                    .append(state.arena.text("`"))
+                    .append(state.arena.text("\")"))
             }
 
             Inline::Html(html) => body(
@@ -103,15 +106,15 @@ impl<'a> ToDoc<'a> for Inline {
 
             Inline::Emphasis(content) => state
                 .arena
-                .text("_")
+                .text("#emph[")
                 .append(content.to_doc(state))
-                .append(state.arena.text("_")),
+                .append(state.arena.text("]")),
 
             Inline::Strong(content) => state
                 .arena
-                .text("*")
+                .text("#strong[")
                 .append(content.to_doc(state))
-                .append(state.arena.text("*")),
+                .append(state.arena.text("]")),
 
             Inline::Strikethrough(content) => state
                 .arena
@@ -131,7 +134,12 @@ impl<'a> ToDoc<'a> for Inline {
 
             Inline::FootnoteReference(label) => {
                 if let Some(def) = state.get_footnote_definition(label) {
-                    body(&state.arena, "footnote", None, vec![def.blocks.to_doc(state)])
+                    body(
+                        &state.arena,
+                        "footnote",
+                        None,
+                        vec![def.blocks.to_doc(state)],
+                    )
                 } else {
                     state
                         .arena
