@@ -14,7 +14,7 @@ fn test_simple_paragraph() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert_eq!(result.trim(), "Hello, world!");
+    assert_eq!(result.trim(), r#"#par[#"Hello, world!"]"#);
 }
 
 #[test]
@@ -26,10 +26,7 @@ fn test_typst_escaping() {
     };
 
     let result = render_typst(&doc, Config::default());
-    // assert!(result.contains(r"\*"));
-    // assert!(result.contains(r"\_"));
-    assert!(result.contains(r"\\"));
-    assert!(result.contains(r#"\""#));
+    assert_eq!(result.trim(), r#"#par[#"Special chars: \* \_ \\ \""]"#);
 }
 
 #[test]
@@ -52,9 +49,13 @@ fn test_headings() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("= Level 1"));
-    assert!(result.contains("== Level 2"));
-    assert!(result.contains("= Setext 1"));
+    let expected = [
+        r#"#heading(level: 1, [#"Level 1"])"#,
+        r#"#heading(level: 2, [#"Level 2"])"#,
+        r#"#heading(level: 1, [#"Setext 1"])"#,
+    ]
+    .join("\n\n");
+    assert_eq!(result.trim(), expected);
 }
 
 #[test]
@@ -70,24 +71,29 @@ fn test_emphasis() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("_italic_"));
-    assert!(result.contains("*bold*"));
+    assert_eq!(
+        result.trim(),
+        r#"#par[#"Normal "#emph[#"italic"]#" and "#strong[#"bold"]#" text."]"#
+    );
 }
 
 #[test]
 fn test_code_block() {
+    let literal = "fn main() {\\n    println!(\\\"Hello!\\\");\\n}";
     let doc = Document {
         blocks: vec![Block::CodeBlock(CodeBlock {
             kind: CodeBlockKind::Fenced {
                 info: Some("rust".to_string()),
             },
-            literal: "fn main() {\n    println!(\"Hello!\");\n}".to_string(),
+            literal: literal.to_string(),
         })],
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("```rust"));
-    assert!(result.contains("fn main()"));
+    assert_eq!(
+        result.trim(),
+        format!("#raw(block: true, lang: \"rust\", \"{}\")", literal)
+    );
 }
 
 #[test]
@@ -120,9 +126,12 @@ fn test_lists() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("[Item 1]"));
-    assert!(result.contains("[#sym.checked]"));
-    assert!(result.contains("[Numbered]"));
+    let expected = [
+        "#list(\n  [#\"Item 1\"],\n  [[#sym.checked] #\"Done item\"],\n)",
+        "#enum(\n  [#\"Numbered\"],\n)",
+    ]
+    .join("\n\n");
+    assert_eq!(result.trim(), expected);
 }
 
 #[test]
@@ -164,11 +173,16 @@ fn test_table() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("#figure(table"));
-    assert!(result.contains("columns: (2)"));
-    assert!(result.contains("[Header 1]"));
-    assert!(result.contains("[Cell 1]"));
-    assert!(result.contains("[Cell 2]"));
+    let expected = [
+        "#figure(table(",
+        "  columns: (2),",
+        "  align: (left + horizon, right + horizon),",
+        r#"  [#"Header 1"],  [#"Header 2"],"#,
+        r#"  [#"Cell 1"],  [#"Cell 2"],"#,
+        "))",
+    ]
+    .join("\n");
+    assert_eq!(result.trim(), expected);
 }
 
 #[test]
@@ -180,7 +194,7 @@ fn test_blockquote() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("> This is a quote."));
+    assert_eq!(result.trim(), r#"#quote(block: true)[#par[#"This is a quote."]]"#);
 }
 
 #[test]
@@ -198,7 +212,10 @@ fn test_links() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("#link(\"https://example.com\", title: \"Example Site\")[this link]"));
+    assert_eq!(
+        result.trim(),
+        r#"#par[#"Visit "#link("https://example.com", title: "Example Site")[#"this link"]#"."]"#
+    );
 }
 
 #[test]
@@ -212,5 +229,8 @@ fn test_autolink() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("#link(\"https://example.com\")"));
+    assert_eq!(
+        result.trim(),
+        r#"#par[#"Visit "#link("https://example.com")#"."]"#
+    );
 }

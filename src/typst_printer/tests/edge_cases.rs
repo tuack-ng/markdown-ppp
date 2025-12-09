@@ -16,7 +16,7 @@ fn test_empty_paragraph() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert_eq!(result.trim(), "");
+    assert_eq!(result.trim(), "#par[]");
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn test_empty_heading() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("= "));
+    assert_eq!(result.trim(), "#heading(level: 1, [])");
 }
 
 #[test]
@@ -43,7 +43,10 @@ fn test_empty_emphasis() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("__"));
+    assert_eq!(
+        result.trim(),
+        r#"#par[#"Text with "#emph[]#" empty emphasis."]"#
+    );
 }
 
 #[test]
@@ -72,7 +75,7 @@ fn test_empty_list_item() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("#list"));
+    assert_eq!(result.trim(), "#list(\n  [],\n)");
 }
 
 #[test]
@@ -85,7 +88,7 @@ fn test_empty_table() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(!result.contains("#table"));
+    assert_eq!(result.trim(), "");
 }
 
 #[test]
@@ -98,7 +101,7 @@ fn test_empty_code_block() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("```\n\n```"));
+    assert_eq!(result.trim(), "#raw(block: true, \"\")");
 }
 
 #[test]
@@ -108,7 +111,7 @@ fn test_empty_blockquote() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains(">"));
+    assert_eq!(result.trim(), "#quote(block: true)[]");
 }
 
 #[test]
@@ -121,8 +124,7 @@ fn test_whitespace_only_text() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("   "));
-    assert!(result.contains("\t "));
+    assert_eq!(result.trim(), r#"#par[#"   \t\n"]"#);
 }
 
 #[test]
@@ -136,7 +138,10 @@ fn test_special_chars_in_urls() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("#link(\"https://example.com/path?q=a&b=c#fragment\")"));
+    assert_eq!(
+        result.trim(),
+        r#"#par[#link("https://example.com/path?q=a&b=c#fragment")[#"link"]]"#
+    );
 }
 
 #[test]
@@ -148,7 +153,7 @@ fn test_special_chars_in_code() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("`* _ \\ \"`"));
+    assert_eq!(result.trim(), r#"#par[#raw("* _ \\ \"")]"#);
 }
 
 #[test]
@@ -160,7 +165,7 @@ fn test_unicode_characters() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("Unicode: αβγ 中文 🚀 ñáéíóú"));
+    assert_eq!(result.trim(), r#"#par[#"Unicode: αβγ 中文 🚀 ñáéíóú"]"#);
 }
 
 #[test]
@@ -241,8 +246,14 @@ fn test_table_with_merged_cells() {
     };
 
     let result = render_typst(&doc, Config::default());
-    println!("{}", result);
-    assert!(result.contains("table.cell(colspan: 2)[A1],"));
-    assert!(result.contains("table.cell(rowspan: 2)[A3],"));
-    assert!(!result.contains("[]"));
+    let expected = [
+        "#figure(table(",
+        "  columns: (3),",
+        "  align: (left + horizon, center + horizon, right + horizon),",
+        r#"  table.cell(colspan: 2)[#"A1"],  table.cell(rowspan: 2)[#"A3"],"#,
+        r#"  [#"B1"],  [#"B2"],"#,
+        "))",
+    ]
+    .join("\n");
+    assert_eq!(result.trim(), expected);
 }
