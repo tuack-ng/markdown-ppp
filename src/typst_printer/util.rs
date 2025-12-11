@@ -29,7 +29,7 @@ pub fn escape_typst(text: &str) -> String {
     text.chars()
         .map(|c| match c {
             '\\' => r"\\".to_string(),
-            '"' => r#"\""#.to_string(),
+            '"' => "\\\"".to_string(),
             '\t' => r"\t".to_string(),
             '\n' => r"\n".to_string(),
             '\r' => r"\r".to_string(),

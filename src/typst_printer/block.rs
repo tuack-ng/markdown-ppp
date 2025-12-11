@@ -72,7 +72,11 @@ impl<'a> ToDoc<'a> for Block {
                 if !lang.is_empty() {
                     args.push(state.arena.text(format!(r#", lang: "{}""#, lang)));
                 }
-                args.push(state.arena.text(format!(r#", "{}""#, code_block.literal)));
+                let escaped_code = code_block
+                    .literal
+                    .replace('\\', r"\\")
+                    .replace('"', r#"\""#);
+                args.push(state.arena.text(format!(r#", "{}""#, escaped_code)));
 
                 body(&state.arena, "raw", Some(state.arena.concat(args)), vec![])
             }

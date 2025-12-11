@@ -88,7 +88,10 @@ fn test_code_block() {
     };
 
     let result = render_typst(&doc, Config::default());
-    let expected = format!("#raw(block: true, lang: \"rust\", \"{}\")", literal);
+    let expected = format!(
+        "#raw(block: true, lang: \"rust\", \"{}\")",
+        literal.replace('\\', r"\\").replace('"', r#"\""#)
+    );
     assert_eq!(result.trim(), expected);
 }
 
