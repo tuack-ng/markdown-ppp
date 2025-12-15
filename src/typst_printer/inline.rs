@@ -96,7 +96,7 @@ impl<'a> ToDoc<'a> for Inline {
                 let alt = escape_typst(&image.alt);
                 state
                     .arena
-                    .text(format!("#image(\"{url}\", alt: \"{alt}\")"))
+                    .text(format!("#box(image(\"{url}\", alt: \"{alt}\"))"))
             }
 
             Inline::Emphasis(content) => state

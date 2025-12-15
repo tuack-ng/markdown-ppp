@@ -191,7 +191,7 @@ fn test_image() {
     };
 
     let result = render_typst(&doc, Config::default());
-    assert!(result.contains("#image(\"image.png\", alt: \"Alt text\")"));
+    assert!(result.contains("image(\"image.png\", alt: \"Alt text\")"));
 }
 
 #[test]
