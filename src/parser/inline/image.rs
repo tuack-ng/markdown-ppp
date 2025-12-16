@@ -5,7 +5,8 @@ use crate::{
     parser::link_util::link_destination,
 };
 use nom::{
-    bytes::complete::{take_until, take_while},
+    branch::alt,
+    bytes::complete::{take_until, take_while, take_while1},
     character::complete::{alpha1, char, multispace0, multispace1},
     combinator::{map, opt},
     multi::separated_list0,
@@ -18,7 +19,10 @@ fn key_value_parser<'a>(input: &'a str) -> IResult<&'a str, (&'a str, &'a str)> 
     separated_pair(
         preceded(multispace0, alpha1),
         delimited(multispace0, char('='), multispace0),
-        delimited(char('"'), take_until("\""), char('"')),
+        alt((
+            delimited(char('"'), take_until("\""), char('"')),
+            take_while1(|c: char| !c.is_whitespace() && c != '}'),
+        )),
     )
     .parse(input)
 }

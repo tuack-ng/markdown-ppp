@@ -8,6 +8,7 @@ mod hard_newline;
 mod html_entity;
 mod image;
 mod image_attr;
+mod image_attr_unquoted;
 mod inline_link;
 mod latex;
 mod reference_link;
