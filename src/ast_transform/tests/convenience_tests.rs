@@ -13,6 +13,7 @@ fn create_test_doc() -> Document {
                     destination: "/image.jpg".to_string(),
                     title: None,
                     alt: "test".to_string(),
+                    attr: None,
                 }),
                 Inline::Text(" and ".to_string()),
                 Inline::Link(Link {

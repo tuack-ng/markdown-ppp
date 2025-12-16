@@ -55,6 +55,7 @@ pub trait Transform {
     ///         destination: "/image.jpg".to_string(),
     ///         title: None,
     ///         alt: "test".to_string(),
+    ///         attr: None,
     ///     })])],
     /// };
     /// let result = doc.transform_image_urls(|url| {
