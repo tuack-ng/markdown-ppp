@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::ast_transform::{FilterTransform, Transform, Transformer};
 
+// Helper function to create a document for testing
 fn create_test_doc() -> Document {
     Document {
         blocks: vec![
@@ -316,5 +317,41 @@ fn test_remove_empty_text() {
         assert_eq!(inlines[1], Inline::Empty); // Whitespace-only text becomes Empty
         assert_eq!(inlines[2], Inline::Text("Another valid".to_string()));
         assert_eq!(inlines[3], Inline::Empty); // Empty string becomes Empty
+    }
+}
+
+#[test]
+fn test_transform_image_urls_in_container() {
+    let doc = Document {
+        blocks: vec![Block::Container(Container {
+            kind: "figure".to_string(),
+            params: vec![],
+            blocks: vec![Block::Paragraph(vec![Inline::Image(Image {
+                destination: "/image.jpg".to_string(),
+                title: None,
+                alt: "test".to_string(),
+                attr: None,
+            })])],
+        })],
+    };
+    let result = doc.transform_image_urls(|url| format!("https://cdn.example.com{}", url));
+    let transformed_block = &result.blocks[0];
+    if let Block::Container(container) = transformed_block {
+        let transformed_paragraph = &container.blocks[0];
+        if let Block::Paragraph(inlines) = transformed_paragraph {
+            let transformed_image = &inlines[0];
+            if let Inline::Image(image) = transformed_image {
+                assert_eq!(
+                    image.destination,
+                    "https://cdn.example.com/image.jpg"
+                );
+            } else {
+                panic!("Expected Inline::Image");
+            }
+        } else {
+            panic!("Expected Block::Paragraph");
+        }
+    } else {
+        panic!("Expected Block::Container");
     }
 }

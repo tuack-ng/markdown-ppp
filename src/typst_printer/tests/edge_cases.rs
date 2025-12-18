@@ -268,6 +268,6 @@ fn test_figure_container_with_caption() {
     let result = render_typst(&doc, Config::default());
     assert_eq!(
         result.trim(),
-        r##"#figure(#par[#"Content"], caption: ["This is a caption"])"##
+        r##"#figure(caption: [This is a caption])[#"Content"]"##
     );
 }

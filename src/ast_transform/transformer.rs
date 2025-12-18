@@ -134,6 +134,14 @@ pub trait Transformer {
     /// Default transformation for block nodes
     fn walk_transform_block(&mut self, block: Block) -> Block {
         match block {
+            Block::Container(mut container) => {
+                container.blocks = container
+                    .blocks
+                    .into_iter()
+                    .map(|block| self.transform_block(block))
+                    .collect();
+                Block::Container(container)
+            }
             Block::Paragraph(inlines) => Block::Paragraph(
                 inlines
                     .into_iter()

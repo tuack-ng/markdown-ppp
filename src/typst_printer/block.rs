@@ -121,23 +121,39 @@ impl<'a> ToDoc<'a> for Block {
                 .append(state.arena.text("\")")),
             Block::Container(container) => {
                 if container.kind == "figure" {
+                    let mut doc = state.arena.text("#figure");
                     let mut args = Vec::new();
-                    if let Some((_, caption)) = container.params.iter().find(|(k, _)| k == "caption") {
-                        args.push(state.arena.text(format!("caption: [\"{}\"]", escape_typst(caption))));
+                    if let Some((_, caption)) =
+                        container.params.iter().find(|(k, _)| k == "caption")
+                    {
+                        args.push(
+                            state
+                                .arena
+                                .text(format!("caption: [{}]", escape_typst(caption))),
+                        );
                     }
-                    let body = container.blocks.to_doc(state);
-                    let mut doc = state.arena.text("#figure(").append(body);
                     if !args.is_empty() {
-                        doc = doc.append(state.arena.text(", ")).append(state.arena.concat(args));
+                        doc = doc
+                            .append(state.arena.text("("))
+                            .append(state.arena.concat(args))
+                            .append(state.arena.text(")"));
                     }
-                    doc.append(state.arena.text(")"))
-                } else {
-                    let mut doc = state.arena.text(format!("#block(breakable: true, inset: (y: 0.5em), stroke: luma(190) + 1pt, width: 100%)[*{}*", container.kind));
-                    if !container.blocks.is_empty() {
-                        doc = doc.append(state.arena.hardline());
-                        doc = doc.append(container.blocks.to_doc(state));
-                    }
+                    doc = doc.append(state.arena.text("["));
+                    let body_doc = if let [Block::Paragraph(inlines)] = &container.blocks[..] {
+                        inlines.to_doc(state)
+                    } else {
+                        container.blocks.to_doc(state)
+                    };
+                    doc = doc.append(body_doc);
                     doc.append(state.arena.text("]"))
+                } else {
+                    // let mut doc = state.arena.text(format!("#block(breakable: true, inset: (y: 0.5em), stroke: luma(190) + 1pt, width: 100%)[*{}*", container.kind));
+                    // if !container.blocks.is_empty() {
+                    //     doc = doc.append(state.arena.hardline());
+                    //     doc = doc.append(container.blocks.to_doc(state));
+                    // }
+                    // doc.append(state.arena.text("]"))
+                    state.arena.text("").append(container.blocks.to_doc(state))
                 }
             }
         }
