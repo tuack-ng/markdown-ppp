@@ -68,7 +68,7 @@ mod tests;
 
 use crate::ast::*;
 use pretty::{Arena, DocBuilder};
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 /// Internal state for Typst rendering
 ///
@@ -77,6 +77,7 @@ use std::{collections::HashMap, rc::Rc};
 #[derive(Clone)]
 pub(crate) struct State<'a> {
     arena: &'a Arena<'a>,
+    #[allow(unused)]
     config: &'a crate::typst_printer::config::Config,
     /// Mapping of footnote labels to their definitions.
     footnote_definitions: &'a HashMap<String, FootnoteDefinition>,

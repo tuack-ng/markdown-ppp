@@ -9,7 +9,7 @@ use nom::{
     },
     combinator::{cut, map, recognize},
     multi::{many0, many_m_n, many_till, separated_list0},
-    sequence::{delimited, preceded, separated_pair, tuple},
+    sequence::{delimited, preceded, separated_pair},
     IResult, Parser,
 };
 use std::rc::Rc;
@@ -30,7 +30,7 @@ fn parse_key_value_pair<'a>(input: &'a str) -> IResult<&'a str, (String, String)
     map(
         separated_pair(
             take_while1(|c: char| c.is_alphanumeric() || c == '-' || c == '_'),
-            tuple((space0, char('='), space0)),
+            (space0, char('='), space0),
             cut(parse_value),
         ),
         |(k, v): (&str, &str)| (k.to_owned(), v.to_owned()),
@@ -86,11 +86,8 @@ pub(crate) fn container<'a>(
         nested_state.containers.push(kind_trimmed.to_string());
         let nested_state_rc = Rc::new(nested_state);
 
-        let (input, (chars, _)) = many_till(
-            anychar,
-            preceded(many_m_n(0, 3, char(' ')), tag(":::")),
-        )
-        .parse(input)?;
+        let (input, (chars, _)) =
+            many_till(anychar, preceded(many_m_n(0, 3, char(' ')), tag(":::"))).parse(input)?;
 
         let inner_content: String = chars.into_iter().collect();
         let (_, blocks) = many0(crate::parser::blocks::block(nested_state_rc))
